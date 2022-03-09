@@ -3,7 +3,13 @@ import paho.mqtt.client as mqtt
 from time import sleep
 from flask import redirect, Flask
 
-app = Flask(__name__)
+def on_connect(client, userdata, flags, rc):
+    mqLive = True
+    print("Connected, result code:", rc)
+
+def on_disconnect(client, userdata, rc):
+    mqLive = False
+    print("Disconnected, result code:", rc)
 
 def clearColors(client):
     for color in ["Red", "Green", "Yellow"]:
@@ -12,12 +18,14 @@ def clearColors(client):
 def setColor(client, color):
     client.publish(r"esp/test", payload="#%s_ON"%(color))
 
-def on_connect(client, userdata, flags, rc):
-    print("Connected, result code:", rc)
+app = Flask(__name__)
+mqHost = "192.168.40.114"
+mqLive = False
 
 client = mqtt.Client()
 client.on_connect = on_connect
-client.connect("192.168.40.114")
+client.on_disconnect = on_disconnect
+
 
 @app.route("/")
 def index():
@@ -25,23 +33,16 @@ def index():
 
 @app.route("/<color>")
 def colors(color):
+    if not mqLive:
+        client.connect(mqHost)
     clearColors(client)
     if color in ["Red", "Green", "Yellow"]:
         setColor(client, color)
     return """
     <body>
-        <style>
-    a {
-      display:block;
-      width:70px;
-      color:rgba(0,0,0,0);
-    }
-        </style>
-        <a href="/Red" style="background:red">Red</a>
-        <a href="/Yellow" style="background:yellow">Yellow</a>
-        <a href="/Green" style="background:green">Green</a>
-        <a href="/Clear" style="background:black">clear</a>
+        <a href="/Red">Red</a>
+        <a href="/Yellow">Yellow</a>
+        <a href="/Green">Green</a>
+        <a href="/Clear">clear</a>
     </body>
     """
-
-
